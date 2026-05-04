@@ -1,0 +1,152 @@
+﻿@page "/shopping"
+@using SmartSpendHome.Models
+@inject SmartSpendHome.Services.ShoppingService ShoppingService
+
+<h3>Shopping</h3>
+
+<div class="summary-container">
+    <div class="card">
+        <h4>Need to Buy</h4>
+        <p>@needCount items</p>
+    </div>
+
+    <div class="card">
+        <h4>Estimated Total</h4>
+        <p>$@estimatedTotal.ToString("0.00")</p>
+    </div>
+</div>
+
+<div class="form-container">
+    <input @bind="newItem.Name" placeholder="Item name" />
+
+    <select @bind="newItem.Category">
+        <option value="">Category</option>
+        <option>Groceries</option>
+        <option>Cleaning</option>
+        <option>Personal Care</option>
+        <option>Kids</option>
+        <option>Household</option>
+        <option>Other</option>
+    </select>
+
+    <select @bind="newItem.PreferredStore">
+        <option value="">Preferred Store</option>
+        <option>Aldi</option>
+        <option>Walmart</option>
+        <option>Costco</option>
+        <option>Publix</option>
+        <option>Amazon</option>
+        <option>Other</option>
+    </select>
+
+    <input type="number" @bind="newItem.EstimatedPrice" placeholder="Estimated price" />
+
+    <label class="toggle-row">
+        <input type="checkbox" @bind="newItem.NeedToBuy" />
+        <span>Need to buy now</span>
+    </label>
+
+    <button type="button" class="primary-button" @onclick="AddItem">
+        Add Item
+    </button>
+</div>
+
+<h4 class="section-title">Need to Buy</h4>
+
+<div class="list">
+    @foreach (var item in needItems)
+    {
+        <div class="list-item">
+            <div>
+                <strong>@item.Name</strong>
+                <div class="small">@item.Category - @item.PreferredStore</div>
+                <div class="small">$@item.EstimatedPrice.ToString("0.00")</div>
+            </div>
+
+            <div class="actions">
+                <button type="button" class="small-button" @onclick="() => MarkBought(item)">
+                    Bought
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+<h4 class="section-title">Replenish List</h4>
+
+<div class="list">
+    @foreach (var item in replenishItems)
+    {
+        <div class="list-item">
+            <div>
+                <strong>@item.Name</strong>
+                <div class="small">@item.Category - @item.PreferredStore</div>
+                <div class="small">$@item.EstimatedPrice.ToString("0.00")</div>
+            </div>
+
+            <div class="actions">
+                <label class="mini-toggle">
+                    <input type="checkbox" @bind="item.NeedToBuy" @bind:after="SaveItems" />
+                    Need
+                </label>
+
+                <button type="button" class="delete-button" @onclick="() => DeleteItem(item.Id)">
+                    Delete
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ShoppingItem> items = new();
+    private ShoppingItem newItem = new();
+
+    private List<ShoppingItem> needItems =>
+        items.Where(x => x.NeedToBuy && !x.Bought).ToList();
+
+    private List<ShoppingItem> replenishItems =>
+        items.Where(x => !x.NeedToBuy || x.Bought).ToList();
+
+    private int needCount =>
+        needItems.Count;
+
+    private decimal estimatedTotal =>
+        needItems.Sum(x => x.EstimatedPrice);
+
+    protected override async Task OnInitializedAsync()
+    {
+        items = await ShoppingService.GetAllAsync();
+    }
+
+    private async Task AddItem()
+    {
+        if (string.IsNullOrWhiteSpace(newItem.Name))
+            return;
+
+        await ShoppingService.AddAsync(newItem);
+
+        items = await ShoppingService.GetAllAsync();
+        newItem = new ShoppingItem();
+    }
+
+    private async Task MarkBought(ShoppingItem item)
+    {
+        item.Bought = true;
+        item.NeedToBuy = false;
+
+        await SaveItems();
+    }
+
+    private async Task DeleteItem(Guid id)
+    {
+        await ShoppingService.DeleteAsync(id);
+        items = await ShoppingService.GetAllAsync();
+    }
+
+    private async Task SaveItems()
+    {
+        await ShoppingService.SaveAllAsync(items);
+        items = await ShoppingService.GetAllAsync();
+    }
+}

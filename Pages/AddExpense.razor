@@ -1,0 +1,121 @@
+﻿@page "/add-expense"
+@using SmartSpendHome.Models
+@inject SmartSpendHome.Services.ExpenseService ExpenseService
+@inject SmartSpendHome.Services.ShoppingService ShoppingService
+@inject NavigationManager Nav
+
+<h3>Add Expense</h3>
+
+<div class="form-container">
+    <input type="number" @bind="expense.Amount" placeholder="Amount" />
+
+    <select @bind="expense.Category">
+        <option value="">Category</option>
+        <option>Groceries</option>
+        <option>Kids / Outings</option>
+        <option>Gas</option>
+        <option>Bills</option>
+        <option>Personal</option>
+        <option>Cleaning</option>
+        <option>Other</option>
+    </select>
+
+    <select @bind="expense.PaymentMethod">
+        <option value="">Payment Method</option>
+        <option>Credit Card</option>
+        <option>Debit</option>
+        <option>Cash</option>
+    </select>
+
+    <select @bind="expense.Store">
+        <option value="">Store</option>
+        <option>Aldi</option>
+        <option>Walmart</option>
+        <option>Sam's Club</option>
+        <option>Costco</option>
+        <option>Publix</option>
+        <option>Amazon</option>
+        <option>Gas Station</option>
+        <option>Other</option>
+    </select>
+
+    <textarea @bind="expense.Note" placeholder="Note"></textarea>
+
+    <label class="toggle-row">
+        <input type="checkbox" @bind="expense.IsEssential" />
+        <span>Essential / Planned</span>
+    </label>
+
+    <label class="toggle-row">
+        <input type="checkbox" @bind="expense.IsFromShopping" />
+        <span>From Shopping Trip</span>
+    </label>
+
+    @if (expense.IsFromShopping)
+    {
+        <h4 class="section-title">Select items bought</h4>
+
+        @if (!shoppingItems.Any(x => x.NeedToBuy))
+        {
+            <p class="small">No items in your shopping list.</p>
+        }
+        else
+        {
+            <div class="list">
+                @foreach (var item in shoppingItems.Where(x => x.NeedToBuy))
+                {
+                    <label class="list-item">
+                        <input type="checkbox"
+                               checked="@selectedItems.Contains(item.Id)"
+                               @onchange="(e) => ToggleItem(item.Id, e)" />
+
+                        <span>@item.Name ($@item.EstimatedPrice.ToString("0.00"))</span>
+                    </label>
+                }
+            </div>
+        }
+    }
+
+    <button type="button" class="primary-button" @onclick="SaveExpense">
+        Save Expense
+    </button>
+</div>
+
+@code {
+    private Expense expense = new();
+    private List<ShoppingItem> shoppingItems = new();
+    private List<Guid> selectedItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        shoppingItems = await ShoppingService.GetAllAsync();
+    }
+
+    private async Task SaveExpense()
+    {
+        if (expense.Amount <= 0)
+            return;
+
+        expense.Date = DateTime.Now;
+        expense.ShoppingItemIds = selectedItems.ToList();
+
+        await ExpenseService.AddAsync(expense);
+
+        Nav.NavigateTo("/summary", forceLoad: true);
+    }
+
+    private void ToggleItem(Guid id, ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool value && value;
+
+        if (isChecked)
+        {
+            if (!selectedItems.Contains(id))
+                selectedItems.Add(id);
+        }
+        else
+        {
+            selectedItems.Remove(id);
+        }
+    }
+}

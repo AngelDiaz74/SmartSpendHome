@@ -1,0 +1,157 @@
+﻿html, body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f5f7fb;
+    color: #111827;
+}
+
+.app-shell {
+    min-height: 100vh;
+    background: #f5f7fb;
+}
+
+.app-content {
+    padding: 16px;
+    padding-bottom: 86px;
+    max-width: 520px;
+    margin: 0 auto;
+}
+
+h3 {
+    margin: 0 0 16px 0;
+    font-size: 26px;
+    font-weight: 800;
+}
+
+.summary-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.card {
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+    border: 1px solid #e5e7eb;
+}
+
+    .card h4 {
+        margin: 0 0 10px 0;
+        font-size: 13px;
+        color: #6b7280;
+    }
+
+    .card h2 {
+        margin: 0;
+        font-size: 28px;
+    }
+
+    .card p {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+    }
+
+.bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 68px;
+    background: white;
+    border-top: 1px solid #d1d5db;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    z-index: 1000;
+}
+
+    .bottom-nav button {
+        background: transparent;
+        color: #111827;
+        border: none;
+        font-size: 13px;
+        font-weight: 700;
+    }
+.form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    border-radius: 14px;
+    border: 1px solid #d1d5db;
+    background: white;
+    box-sizing: border-box;
+}
+
+textarea {
+    min-height: 88px;
+    resize: none;
+}
+
+.toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: white;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    font-weight: 700;
+}
+
+.primary-button {
+    width: 100%;
+    padding: 15px;
+    border-radius: 16px;
+    border: none;
+    background: #111827;
+    color: white;
+    font-size: 17px;
+    font-weight: 800;
+}
+
+.section-title {
+    margin: 22px 0 8px 0;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.small-button {
+    padding: 8px 12px;
+    border-radius: 12px;
+    border: none;
+    background: #111827;
+    color: white;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.delete-button {
+    padding: 7px 10px;
+    border-radius: 10px;
+    border: none;
+    background: #fee2e2;
+    color: #991b1b;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.mini-toggle {
+    font-size: 12px;
+    font-weight: 700;
+}

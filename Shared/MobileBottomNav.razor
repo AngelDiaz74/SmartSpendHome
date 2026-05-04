@@ -1,0 +1,16 @@
+﻿
+@inject NavigationManager Nav
+
+<div class="bottom-nav">
+    <button @onclick='() => GoTo("/")'>Today</button>
+    <button @onclick='() => GoTo("/add-expense")'>Add</button>
+    <button @onclick='() => GoTo("/shopping")'>Shopping</button>
+    <button @onclick='() => GoTo("/summary")'>Summary</button>
+</div>
+
+@code {
+    private void GoTo(string url)
+    {
+        Nav.NavigateTo(url);
+    }
+}
