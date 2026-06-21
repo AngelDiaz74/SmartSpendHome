@@ -1,0 +1,81 @@
+﻿@page "/shopping"
+@using SmartSpendHome.Models
+@using SmartSpendHome.Services
+@inject IShoppingListService ShoppingListService
+@inject ISupabaseAuthService AuthService
+@inject NavigationManager Navigation
+
+<h1>Weekly Shopping List</h1>
+
+<div style="display: flex; gap: 8px; margin-bottom: 16px;">
+    <input @bind="newProductName"
+           @bind:event="oninput"
+           placeholder="Add grocery item..."
+           style="flex: 1; padding: 10px;" />
+
+    <button @onclick="AddProduct" style="padding: 10px 16px;">
+        Add
+    </button>
+</div>
+
+@if (pendingProducts.Count == 0)
+{
+    <p>No pending grocery items.</p>
+}
+else
+{
+    <ul style="list-style: none; padding: 0;">
+        @foreach (var product in pendingProducts)
+        {
+            <li style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #ddd;">
+                <span>@product.Name</span>
+
+                <button @onclick="() => MarkAsPurchased(product.Id)">
+                    Purchased
+                </button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private string newProductName = string.Empty;
+    private List<ShoppingProduct> pendingProducts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isLoggedIn = await AuthService.IsLoggedInAsync();
+
+        if (!isLoggedIn)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        pendingProducts = await ShoppingListService.GetPendingProductsAsync();
+    }
+
+    private async Task AddProduct()
+    {
+        if (string.IsNullOrWhiteSpace(newProductName))
+            return;
+
+        await ShoppingListService.AddProductAsync(newProductName);
+
+        newProductName = string.Empty;
+
+        await LoadProducts();
+    }
+
+    private async Task MarkAsPurchased(Guid productId)
+    {
+        await ShoppingListService.MarkAsPurchasedAsync(productId);
+
+        await LoadProducts();
+    }
+}

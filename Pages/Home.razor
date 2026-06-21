@@ -1,93 +1,9 @@
 ﻿@page "/"
-@using SmartSpendHome.Models
-@inject SmartSpendHome.Services.ExpenseService ExpenseService
-@inject SmartSpendHome.Services.IncomeService IncomeService
 
-<h3>Today</h3>
+<h1>SmartSpendHome</h1>
 
-<div class="summary-container">
+<p>Grocery refactor is running.</p>
 
-    <div class="card">
-        <h4>Safe to Spend Today</h4>
-        <h2>$@safeToSpend.ToString("0.00")</h2>
-    </div>
-
-    <div class="card">
-        <h4>Total Expenses</h4>
-        <p>$@totalSpent.ToString("0.00")</p>
-    </div>
-
-    <div class="card">
-        <h4>Groceries This Month</h4>
-        <p>$@groceriesSpent.ToString("0.00")</p>
-    </div>
-
-    <div class="card">
-        <h4>Optional Spending</h4>
-        <p>$@optionalSpent.ToString("0.00")</p>
-    </div>
-
-    <div class="card">
-        <h4>Total Income</h4>
-        <p>$@totalIncome.ToString("0.00")</p>
-    </div>
-
-    <div class="card">
-        <h4>Status</h4>
-        <p>@status</p>
-    </div>
-
-</div>
-
-@code {
-    private List<Expense> expenses = new();
-    private List<Income> incomes = new();
-
-    private decimal totalIncome;
-    private decimal totalSpent;
-    private decimal groceriesSpent;
-    private decimal optionalSpent;
-    private decimal safeToSpend;
-    private string status = "Inside Plan";
-
-    protected override async Task OnInitializedAsync()
-    {
-        expenses = await ExpenseService.GetAllAsync();
-        incomes = await IncomeService.GetAllAsync();
-
-        var now = DateTime.Now;
-
-        var monthlyExpenses = expenses
-            .Where(x => x.Date.Month == now.Month && x.Date.Year == now.Year)
-            .ToList();
-
-        var monthlyIncome = incomes
-            .Where(x => x.Date.Month == now.Month && x.Date.Year == now.Year)
-            .ToList();
-
-        totalIncome = monthlyIncome.Sum(x => x.Amount);
-        totalSpent = monthlyExpenses.Sum(x => x.Amount);
-
-        groceriesSpent = monthlyExpenses
-            .Where(x => x.Category == "Groceries")
-            .Sum(x => x.Amount);
-
-        optionalSpent = monthlyExpenses
-            .Where(x => !x.IsEssential)
-            .Sum(x => x.Amount);
-
-        var remaining = totalIncome - totalSpent;
-
-        var daysLeft = DateTime.DaysInMonth(now.Year, now.Month) - now.Day;
-
-        if (daysLeft <= 0)
-            daysLeft = 1;
-
-        safeToSpend = remaining / daysLeft;
-
-        if (remaining < 0)
-            status = "Over Budget";
-        else
-            status = "Inside Plan";
-    }
-}
+<a href="/budget">Go to Budget</a>
+<br />
+<a href="/shopping">Go to Shopping</a>

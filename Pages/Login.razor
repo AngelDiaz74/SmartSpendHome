@@ -1,0 +1,77 @@
+﻿@page "/login"
+@using SmartSpendHome.Services
+@inject ISupabaseAuthService AuthService
+@inject NavigationManager Navigation
+
+<div style="max-width: 420px; margin: 40px auto; padding: 16px;">
+
+    <h1>Login</h1>
+
+    <p style="color: #666;">
+        Sign in with your Supabase test user.
+    </p>
+
+    <div style="display: grid; gap: 12px;">
+        <input @bind="email"
+               @bind:event="oninput"
+               placeholder="Email"
+               style="padding: 12px; font-size: 16px;" />
+
+        <input @bind="password"
+               @bind:event="oninput"
+               type="password"
+               placeholder="Password"
+               style="padding: 12px; font-size: 16px;" />
+
+        <button @onclick="SignIn"
+                disabled="@isLoggingIn"
+                style="padding: 12px; font-weight: bold;">
+            @(isLoggingIn ? "Signing in..." : "Login")
+        </button>
+
+        @if (!string.IsNullOrWhiteSpace(message))
+        {
+            <div style="padding: 12px; border-radius: 8px; background: @messageBackground; color: @messageColor;">
+                @message
+            </div>
+        }
+    </div>
+
+</div>
+
+@code {
+    private string email = string.Empty;
+    private string password = string.Empty;
+
+    private bool isLoggingIn;
+    private string? message;
+
+    private string messageBackground = "#f3f4f6";
+    private string messageColor = "#111827";
+
+    private async Task SignIn()
+    {
+        isLoggingIn = true;
+        message = null;
+
+        var result = await AuthService.SignInAsync(email, password);
+
+        isLoggingIn = false;
+
+        if (!result.Success)
+        {
+            message = result.Message ?? "Login failed.";
+            messageBackground = "#fee2e2";
+            messageColor = "#991b1b";
+            return;
+        }
+
+        message = $"Logged in as {result.Session?.Email}";
+        messageBackground = "#dcfce7";
+        messageColor = "#166534";
+
+        await Task.Delay(600);
+
+        Navigation.NavigateTo("/shopping");
+    }
+}

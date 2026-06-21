@@ -1,0 +1,563 @@
+﻿@page "/budget"
+@using SmartSpendHome.Models
+@using SmartSpendHome.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject IGroceryBudgetService GroceryBudgetService
+@inject IReceiptParserService ReceiptParserService
+@inject IJSRuntime JS
+@inject ISupabaseAuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="budget-page">
+
+    <div class="page-header">
+        <h1>Grocery Budget</h1>
+        <p>Track your monthly grocery spending and receipts.</p>
+    </div>
+
+    @if (summary is null)
+    {
+        <div class="loading-card">
+            Loading budget...
+        </div>
+    }
+    else
+    {
+        <section class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-label">Monthly Budget</div>
+                <div class="summary-value">@summary.MonthlyBudget.ToString("C")</div>
+            </div>
+
+            <div class="summary-card">
+                <div class="summary-label">Total Spent</div>
+                <div class="summary-value">@summary.TotalSpent.ToString("C")</div>
+            </div>
+
+            <div class="summary-card remaining-card @(summary.IsOverBudget ? "over-budget" : "under-budget")">
+                <div class="summary-label">Remaining Budget</div>
+                <div class="summary-value">@summary.RemainingBudget.ToString("C")</div>
+            </div>
+        </section>
+
+        <section class="form-card">
+            <div class="section-title-row">
+                <h2>Monthly Budget</h2>
+            </div>
+
+            <div class="budget-input-row">
+                <input type="number"
+                       step="0.01"
+                       @bind="monthlyBudgetInput"
+                       @bind:event="oninput"
+                       class="app-input"
+                       placeholder="Monthly budget" />
+
+                <button type="button"
+                        @onclick="SaveBudget"
+                        disabled="@isSavingBudget"
+                        class="primary-button">
+                    @(isSavingBudget ? "Saving..." : "Save")
+                </button>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(budgetSaveMessage))
+            {
+                <div class="save-success-message">
+                    @budgetSaveMessage
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(budgetSaveError))
+            {
+                <div class="save-error-message">
+                    @budgetSaveError
+                </div>
+            }
+        </section>
+        <section class="scan-card">
+            <div class="scan-header">
+                <div>
+                    <h2>Scan Receipt</h2>
+                    <p>Take a photo or select a receipt image. OCR will be added in the next phase.</p>
+                </div>
+
+                <div class="scan-icon">
+                    📷
+                </div>
+            </div>
+
+            <InputFile id="receipt-file-input"
+                       OnChange="HandleReceiptImageSelected"
+                       accept="image/*"
+                       capture="environment"
+                       class="hidden-file-input" />
+
+            <label for="receipt-file-input" class="scan-button">
+                Scan Receipt
+            </label>
+
+            @if (!string.IsNullOrWhiteSpace(receiptImageError))
+            {
+                <div class="scan-error">
+                    @receiptImageError
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(receiptImagePreview))
+            {
+                <div class="selected-receipt-card">
+                    @* <img src="@receiptImagePreview" class="receipt-preview-image" /> *@
+
+                    <div class="selected-receipt-info">
+                        <div class="selected-file-name">@selectedReceiptImageName</div>
+
+                        @if (selectedReceiptImageSizeKb.HasValue)
+                        {
+                            <div class="selected-file-meta">
+                                @selectedReceiptImageSizeKb.Value.ToString("N0") KB selected
+                            </div>
+                        }
+
+                        <div class="preview-note">
+                            Preview only. This image is not saved yet.
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(receiptImagePreview))
+                        {
+                            <div class="selected-receipt-card">
+                                <img src="@receiptImagePreview" class="receipt-preview-image" />
+
+                                <div class="selected-receipt-info">
+                                    <div class="selected-file-name">@selectedReceiptImageName</div>
+
+                                    @if (selectedReceiptImageSizeKb.HasValue)
+                                    {
+                                        <div class="selected-file-meta">
+                                            @selectedReceiptImageSizeKb.Value.ToString("N0") KB selected
+                                        </div>
+                                    }
+
+                                    <div class="preview-note">
+                                        Preview only. This image is not saved yet.
+                                    </div>
+                                </div>
+
+                                <button @onclick="RunReceiptOcr"
+                                        disabled="@isOcrRunning"
+                                        class="ocr-button full-width">
+                                    @(isOcrRunning ? "Reading Receipt..." : "Run OCR")
+                                </button>
+
+                                <button @onclick="ClearSelectedReceiptImage" class="secondary-button full-width">
+                                    Clear Image
+                                </button>
+
+                                @if (!string.IsNullOrWhiteSpace(ocrStatusMessage))
+                                {
+                                    <div class="ocr-status">
+                                        @ocrStatusMessage
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(ocrErrorMessage))
+                                {
+                                    <div class="scan-error">
+                                        @ocrErrorMessage
+                                    </div>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(rawOcrText))
+                                {
+                                    <button @onclick="ParseReceiptText" class="detect-button full-width">
+                                        Detect Store, Total & Items
+                                    </button>
+
+                                    @if (!string.IsNullOrWhiteSpace(parseStatusMessage))
+                                    {
+                                        <div class="ocr-status">
+                                            @parseStatusMessage
+                                        </div>
+                                    }
+
+                                    @if (!string.IsNullOrWhiteSpace(parseErrorMessage))
+                                    {
+                                        <div class="scan-error">
+                                            @parseErrorMessage
+                                        </div>
+                                    }
+
+                                    @if (parsedReceipt is not null)
+                                    {
+                                        <div class="detected-card">
+                                            <div class="detected-title">Detected Receipt Info</div>
+
+                                            <div class="detected-row">
+                                                <span>Store</span>
+                                                <strong>@(parsedReceipt.StoreName ?? "Not detected")</strong>
+                                            </div>
+
+                                            <div class="detected-row">
+                                                <span>Total</span>
+                                                <strong>@parsedReceipt.TotalAmount.ToString("C")</strong>
+                                            </div>
+
+                                            <div class="detected-row">
+                                                <span>Items</span>
+                                                <strong>@parsedReceipt.Items.Count</strong>
+                                            </div>
+
+                                            @if (parsedReceipt.Items.Count > 0)
+                                            {
+                                                <div class="detected-items">
+                                                    @foreach (var item in parsedReceipt.Items.Take(8))
+                                                    {
+                                                        <div class="detected-item-row">
+                                                            <span>@item.ItemName</span>
+                                                            <strong>@(item.Price?.ToString("C") ?? "-")</strong>
+                                                        </div>
+                                                    }
+
+                                                    @if (parsedReceipt.Items.Count > 8)
+                                                    {
+                                                        <div class="detected-more">
+                                                            + @(parsedReceipt.Items.Count - 8) more items detected
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+
+                                    <div class="ocr-result-card">
+                                        <div class="ocr-result-title">Raw OCR Text</div>
+
+                                        <textarea class="ocr-textarea" readonly>@rawOcrText</textarea>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <button @onclick="ClearSelectedReceiptImage" class="secondary-button full-width">
+                        Clear Image
+                    </button>
+                </div>
+            }
+        </section>
+        <section class="form-card">
+            <div class="section-title-row">
+                <h2>Add Receipt</h2>
+            </div>
+
+            <div class="receipt-form">
+                <input @bind="newStoreName"
+                       @bind:event="oninput"
+                       class="app-input"
+                       placeholder="Store name" />
+
+                <input type="number"
+                       step="0.01"
+                       @bind="newReceiptTotal"
+                       class="app-input"
+                       placeholder="Receipt total" />
+
+                <input type="date"
+                       @bind="newReceiptDate"
+                       class="app-input" />
+
+                <button @onclick="AddReceipt" class="primary-button full-width">
+                    Add Receipt
+                </button>
+            </div>
+        </section>
+
+        <section class="history-section">
+            <div class="section-title-row">
+                <h2>Receipts History</h2>
+                <span class="count-badge">@receipts.Count</span>
+            </div>
+
+            @if (receipts.Count == 0)
+            {
+                <div class="empty-card">
+                    <p>No receipts added yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="receipt-list">
+                    @foreach (var receipt in receipts)
+                    {
+                        <div class="receipt-card">
+                            <div class="receipt-main">
+                                <div>
+                                    <div class="store-name">@receipt.StoreName</div>
+                                    <div class="receipt-date">
+                                        @receipt.ReceiptDate.ToString("MM/dd/yyyy")
+                                    </div>
+                                </div>
+
+                                <div class="receipt-total">
+                                    @receipt.TotalAmount.ToString("C")
+                                </div>
+                            </div>
+
+                            <div class="receipt-actions">
+                                <button @onclick="() => DeleteReceipt(receipt.Id)"
+                                        class="danger-button">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+    }
+
+</div>
+
+@code {
+    private GroceryBudgetSummary? summary;
+    private List<GroceryReceipt> receipts = new();
+
+    private decimal monthlyBudgetInput = 700;
+
+    private string newStoreName = string.Empty;
+    private decimal newReceiptTotal;
+    private DateTime newReceiptDate = DateTime.Today;
+
+    private string? receiptImagePreview;
+    private string? selectedReceiptImageName;
+    private decimal? selectedReceiptImageSizeKb;
+    private string? receiptImageError;
+
+
+    private bool isOcrRunning;
+    private string? rawOcrText;
+    private string? ocrStatusMessage;
+    private string? ocrErrorMessage;
+
+    private ParsedReceipt? parsedReceipt;
+    private string? parseStatusMessage;
+    private string? parseErrorMessage;
+
+    private bool isSavingBudget;
+    private string? budgetSaveMessage;
+    private string? budgetSaveError;
+
+    private const long MaxReceiptImageSize = 5 * 1024 * 1024;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBudget();
+    }
+
+    private async Task LoadBudget()
+    {
+        summary = await GroceryBudgetService.GetSummaryAsync();
+        monthlyBudgetInput = await GroceryBudgetService.GetMonthlyBudgetAsync();
+        receipts = await GroceryBudgetService.GetReceiptsAsync();
+    }
+
+    private async Task SaveBudget()
+    {
+        budgetSaveMessage = null;
+        budgetSaveError = null;
+        isSavingBudget = true;
+
+        try
+        {
+            await GroceryBudgetService.SetMonthlyBudgetAsync(monthlyBudgetInput);
+            await LoadBudget();
+
+            budgetSaveMessage = $"Monthly budget saved: {summary?.MonthlyBudget.ToString("C")}";
+        }
+        catch (Exception ex)
+        {
+            budgetSaveError = ex.Message;
+        }
+        finally
+        {
+            isSavingBudget = false;
+        }
+    }
+
+    private async Task AddReceipt()
+    {
+        if (newReceiptTotal <= 0)
+            return;
+
+        await GroceryBudgetService.AddReceiptAsync(
+            newStoreName,
+            newReceiptTotal,
+            newReceiptDate,
+            rawOcrText,
+            parsedReceipt?.Items);
+
+        newStoreName = string.Empty;
+        newReceiptTotal = 0;
+        newReceiptDate = DateTime.Today;
+
+        ClearSelectedReceiptImage();
+
+        await LoadBudget();
+    }
+    private async Task DeleteReceipt(Guid receiptId)
+    {
+        await GroceryBudgetService.DeleteReceiptAsync(receiptId);
+        await LoadBudget();
+    }
+
+    private async Task HandleReceiptImageSelected(InputFileChangeEventArgs e)
+    {
+
+        parsedReceipt = null;
+        parseStatusMessage = null;
+        parseErrorMessage = null;
+
+        receiptImageError = null;
+        receiptImagePreview = null;
+        selectedReceiptImageName = null;
+        selectedReceiptImageSizeKb = null;
+
+        rawOcrText = null;
+        ocrStatusMessage = null;
+        ocrErrorMessage = null;
+        isOcrRunning = false;
+
+        var file = e.File;
+
+        if (file is null)
+            return;
+
+        if (file.Size > MaxReceiptImageSize)
+        {
+            receiptImageError = "The receipt image is too large. Please select an image under 5 MB.";
+            return;
+        }
+
+        try
+        {
+            using var stream = file.OpenReadStream(MaxReceiptImageSize);
+            using var memoryStream = new MemoryStream();
+
+            await stream.CopyToAsync(memoryStream);
+
+            var imageBytes = memoryStream.ToArray();
+            var base64Image = Convert.ToBase64String(imageBytes);
+
+            receiptImagePreview = $"data:{file.ContentType};base64,{base64Image}";
+            selectedReceiptImageName = file.Name;
+            selectedReceiptImageSizeKb = Math.Round((decimal)file.Size / 1024, 0);
+        }
+        catch
+        {
+            receiptImageError = "Could not load the receipt image. Please try another photo.";
+        }
+    }
+
+    private void ClearSelectedReceiptImage()
+    {
+        receiptImagePreview = null;
+        selectedReceiptImageName = null;
+        selectedReceiptImageSizeKb = null;
+        receiptImageError = null;
+
+        rawOcrText = null;
+        ocrStatusMessage = null;
+        ocrErrorMessage = null;
+        isOcrRunning = false;
+
+        parsedReceipt = null;
+        parseStatusMessage = null;
+        parseErrorMessage = null;
+    }
+
+    private class ReceiptOcrResult
+    {
+        public bool Success { get; set; }
+        public string? Text { get; set; }
+        public string? Error { get; set; }
+    }
+
+    private async Task RunReceiptOcr()
+    {
+        if (string.IsNullOrWhiteSpace(receiptImagePreview))
+        {
+            ocrErrorMessage = "Please select a receipt image first.";
+            return;
+        }
+
+        isOcrRunning = true;
+        rawOcrText = null;
+        ocrStatusMessage = "Reading receipt image...";
+        ocrErrorMessage = null;
+
+        try
+        {
+            var result = await JS.InvokeAsync<ReceiptOcrResult>(
+                "smartSpendReceiptOcr.recognizeReceipt",
+                receiptImagePreview);
+
+            if (result is null)
+            {
+                ocrErrorMessage = "OCR did not return a result.";
+                ocrStatusMessage = null;
+                return;
+            }
+
+            if (!result.Success)
+            {
+                ocrErrorMessage = string.IsNullOrWhiteSpace(result.Error)
+                    ? "OCR failed."
+                    : result.Error;
+
+                ocrStatusMessage = null;
+                return;
+            }
+
+            rawOcrText = result.Text;
+
+            ocrStatusMessage = string.IsNullOrWhiteSpace(rawOcrText)
+                ? "OCR completed, but no text was detected."
+                : "OCR completed. Raw text extracted.";
+        }
+        catch (Exception ex)
+        {
+            ocrErrorMessage = $"OCR failed: {ex.Message}";
+            ocrStatusMessage = null;
+        }
+        finally
+        {
+            isOcrRunning = false;
+        }
+    }
+
+    private void ParseReceiptText()
+    {
+        parseStatusMessage = null;
+        parseErrorMessage = null;
+        parsedReceipt = null;
+
+        if (string.IsNullOrWhiteSpace(rawOcrText))
+        {
+            parseErrorMessage = "No OCR text available. Run OCR first.";
+            return;
+        }
+
+        parsedReceipt = ReceiptParserService.Parse(rawOcrText);
+
+        if (!string.IsNullOrWhiteSpace(parsedReceipt.StoreName))
+        {
+            newStoreName = parsedReceipt.StoreName;
+        }
+
+        if (parsedReceipt.TotalAmount > 0)
+        {
+            newReceiptTotal = parsedReceipt.TotalAmount;
+        }
+
+        parseStatusMessage = "Receipt info detected. Please review before saving.";
+    }
+}
